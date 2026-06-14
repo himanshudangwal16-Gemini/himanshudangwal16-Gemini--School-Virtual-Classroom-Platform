@@ -1,0 +1,10 @@
+{
+  "name": "Remix: School Virtual Classroom Platform",
+  "description": "विद्यालय पोर्टल — A digital school virtual classroom platform featuring real-time lectures, Google Meet integration, live continuous multi-lingual speech transcriptions, student check-ins, and automated attendance logging.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

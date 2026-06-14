@@ -1,0 +1,66 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User account information and system role.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Unique user ID." },
+        "email": { "type": "string", "description": "Google account email." },
+        "name": { "type": "string", "description": "User display name." },
+        "role": { "type": "string", "enum": ["student", "teacher", "admin"], "description": "System role controlling access permissions." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Profile creation timestamp." }
+      },
+      "required": ["uid", "email", "name", "role", "createdAt"]
+    },
+    "Session": {
+      "title": "Classroom Session",
+      "description": "A scheduled or live virtual classroom session.",
+      "type": "object",
+      "properties": {
+        "sessionId": { "type": "string", "description": "Unique session ID." },
+        "subject": { "type": "string", "description": "Subject being taught." },
+        "grade": { "type": "string", "description": "Grade/class targeted." },
+        "scheduledTime": { "type": "string", "format": "date-time", "description": "Planned class start time." },
+        "meetLink": { "type": "string", "description": "Google Meet link generated for the class." },
+        "status": { "type": "string", "enum": ["scheduled", "live", "ended"], "description": "Session progress state." },
+        "teacherUid": { "type": "string", "description": "UID of the teacher." },
+        "teacherName": { "type": "string", "description": "Name of the teaching staff member." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp." },
+        "endedAt": { "type": "string", "format": "date-time", "description": "Actual session end timestamp." },
+        "transcript": { "type": "string", "description": "Classroom continuous voice transcript." }
+      },
+      "required": ["sessionId", "subject", "grade", "scheduledTime", "meetLink", "status", "teacherUid", "teacherName", "createdAt"]
+    },
+    "Attendance": {
+      "title": "Class Attendance Record",
+      "description": "Log of student presence and duration in a class session.",
+      "type": "object",
+      "properties": {
+        "docId": { "type": "string", "description": "Unique record tracking ID." },
+        "sessionId": { "type": "string", "description": "Reference to the active Session ID." },
+        "studentUid": { "type": "string", "description": "Google UID of the student." },
+        "studentName": { "type": "string", "description": "Student display name." },
+        "studentEmail": { "type": "string", "description": "Student email address." },
+        "joinedAt": { "type": "string", "format": "date-time", "description": "Time the student joined the classroom." },
+        "leftAt": { "type": "string", "format": "date-time", "description": "Time the student left the classroom." },
+        "durationMinutes": { "type": "number", "description": "Calculated duration user spent in the session in minutes." }
+      },
+      "required": ["docId", "sessionId", "studentUid", "studentName", "studentEmail", "joinedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Profiles for students, teachers, and admins."
+    },
+    "/sessions/{sessionId}": {
+      "schema": "Session",
+      "description": "Virtual classroom sessions scheduled or archived."
+    },
+    "/attendance/{attendanceId}": {
+      "schema": "Attendance",
+      "description": "Session attendance logs tracking join, leaf, and durations."
+    }
+  }
+}

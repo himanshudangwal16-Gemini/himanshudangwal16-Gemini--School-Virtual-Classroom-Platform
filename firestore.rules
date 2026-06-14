@@ -1,0 +1,122 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- REUSABLE SECURITY UTILITIES ---
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && (request.auth.token.email_verified == true || request.auth.token.email == "himanshudangwal16@gmail.com");
+    }
+
+    function isBootstrappedAdmin() {
+      return isSignedIn() && request.auth.token.email == "himanshudangwal16@gmail.com";
+    }
+
+    function getUserData(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data;
+    }
+
+    function hasUserRole(uid, role) {
+      return exists(/databases/$(database)/documents/users/$(uid)) && getUserData(uid).role == role;
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdmin() || (isSignedIn() && hasUserRole(request.auth.uid, "admin"));
+    }
+
+    function isTeacher() {
+      return isSignedIn() && (hasUserRole(request.auth.uid, "teacher") || isAdmin());
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // --- COLLECTION RULES ---
+
+    // 1. Users Collection
+    match /users/{userId} {
+      // Read access: Anyone signed in can read a student's or teacher's profile card
+      allow read: if isSignedIn();
+      
+      // Create profile: Any signed-in user can create their own profile, default to student role
+      allow create: if isSignedIn() 
+        && userId == request.auth.uid
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.role == "student"
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 100;
+        
+      // Update profile: Profile owner can update if role remains unchanged, or admin can change any profile details
+      allow update: if isSignedIn() 
+        && (
+          (userId == request.auth.uid && request.resource.data.role == resource.data.role) 
+          || isAdmin()
+        );
+
+      // Delete profile: Admin only
+      allow delete: if isAdmin();
+    }
+
+    // 2. Sessions (Live & Scheduled Classes)
+    match /sessions/{sessionId} {
+      // Any authenticated user can list/view classroom details
+      allow read: if isSignedIn();
+      
+      // Schedule class: Only teachers and admins
+      allow create: if isTeacher()
+        && isValidId(sessionId)
+        && request.resource.data.sessionId == sessionId
+        && request.resource.data.teacherUid == request.auth.uid
+        && request.resource.data.subject is string
+        && request.resource.data.subject.size() > 0
+        && request.resource.data.meetLink is string
+        && request.resource.data.status == "scheduled";
+
+      // Edit class details: Only the host teacher or admin
+      allow update: if isTeacher()
+        && (resource.data.teacherUid == request.auth.uid || isAdmin())
+        && request.resource.data.sessionId == resource.data.sessionId
+        && request.resource.data.teacherUid == resource.data.teacherUid;
+
+      // Delete: Only admins
+      allow delete: if isAdmin();
+    }
+
+    // 3. Attendance Logs
+    match /attendance/{attendanceId} {
+      // Authenticated users can read (teachers/admins check all, students query for themselves)
+      allow read: if isSignedIn();
+
+      // Check-in: Any authenticated user can create their own attendance logs
+      allow create: if isSignedIn()
+        && isValidId(attendanceId)
+        && request.resource.data.studentUid == request.auth.uid
+        && request.resource.data.studentEmail == request.auth.token.email
+        && request.resource.data.joinedAt is string
+        && request.resource.data.joinedAt.size() > 0;
+
+      // Check-out / update status: The student itself (checkout) or teacher/admin (updating notes)
+      allow update: if isSignedIn()
+        && (
+          resource.data.studentUid == request.auth.uid 
+          || isTeacher()
+        )
+        && request.resource.data.docId == resource.data.docId
+        && request.resource.data.studentUid == resource.data.studentUid;
+
+      // Delete logs: Admin only
+      allow delete: if isAdmin();
+    }
+  }
+}
