@@ -21,7 +21,12 @@ import {
   AlertCircle,
   Menu,
   X,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Globe,
+  Copy,
+  Check,
+  ArrowUpRight,
+  Monitor
 } from 'lucide-react';
 import { ClassSession, UserProfile } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -42,6 +47,10 @@ export default function Dashboard({ user, onLogout, onStartClass, onJoinClass, o
   // Mobile sidebar toggle state
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // Google Sites deployment guide toggle
+  const [showSitesDeployGuide, setShowSitesDeployGuide] = useState(false);
+  const [copiedUrl, setCopiedUrl] = useState(false);
+
   // New session form states
   const [subject, setSubject] = useState('');
   const [grade, setGrade] = useState('');
@@ -55,6 +64,7 @@ export default function Dashboard({ user, onLogout, onStartClass, onJoinClass, o
 
   // Filter sessions by search query
   const [filterQuery, setFilterQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'live' | 'scheduled' | 'ended'>('all');
 
   // Save Apps Script URL to local storage
   const handleSaveSettings = () => {
@@ -66,9 +76,10 @@ export default function Dashboard({ user, onLogout, onStartClass, onJoinClass, o
   const [sessionExportingId, setSessionExportingId] = useState<string | null>(null);
   const [sheetsLink, setSheetsLink] = useState<string | null>(null);
   const [sheetsError, setSheetsError] = useState<string | null>(null);
+  const [showExportModal, setShowExportModal] = useState<ClassSession | null>(null);
 
   // Export specific session summary & attendance to Google Sheets
-  const handleExportSessionToSheets = async (targetSession: ClassSession) => {
+  const handleExportSessionToSheets = async (targetSession: ClassSession, ignoreTokenCheck = false) => {
     setSessionExportingId(targetSession.sessionId);
     setSheetsLink(null);
     setSheetsError(null);
@@ -77,14 +88,15 @@ export default function Dashboard({ user, onLogout, onStartClass, onJoinClass, o
       const { exportSessionReportToSheets } = await import('../utils/googleSheets');
       
       let token = getGoogleAccessToken();
-      if (!token) {
-        const confirmLogin = window.confirm(
-          `Exporting ${targetSession.subject} report to Google Sheets requires connecting your Google account. Connect now?`
-        );
-        if (!confirmLogin) {
-          setSessionExportingId(null);
-          return;
-        }
+      if (!token && !ignoreTokenCheck) {
+        // Instead of blocking window.confirm, trigger our premium in-app modal
+        setShowExportModal(targetSession);
+        setSessionExportingId(null);
+        return;
+      }
+
+      if (!token && ignoreTokenCheck) {
+        // Authenticate when the user explicitly triggers the action from our modal
         await signInWithGoogle();
         token = getGoogleAccessToken();
       }
@@ -104,6 +116,7 @@ export default function Dashboard({ user, onLogout, onStartClass, onJoinClass, o
       setSheetsError(`Google Sheets Export for ${targetSession.subject} failed: ` + (err.message || String(err)));
     } finally {
       setSessionExportingId(null);
+      setShowExportModal(null);
     }
   };
 
@@ -207,11 +220,13 @@ export default function Dashboard({ user, onLogout, onStartClass, onJoinClass, o
   };
 
   // Filtered session list logic
-  const filteredSessions = sessions.filter(s => 
-    s.subject.toLowerCase().includes(filterQuery.toLowerCase()) ||
-    s.grade.toLowerCase().includes(filterQuery.toLowerCase()) ||
-    s.teacherName.toLowerCase().includes(filterQuery.toLowerCase())
-  );
+  const filteredSessions = sessions.filter(s => {
+    const matchesSearch = s.subject.toLowerCase().includes(filterQuery.toLowerCase()) ||
+                          s.grade.toLowerCase().includes(filterQuery.toLowerCase()) ||
+                          s.teacherName.toLowerCase().includes(filterQuery.toLowerCase());
+    if (statusFilter === 'all') return matchesSearch;
+    return matchesSearch && s.status === statusFilter;
+  });
 
   // Metrics indicators calculations
   const liveCount = sessions.filter(s => s.status === 'live').length;
@@ -223,24 +238,24 @@ export default function Dashboard({ user, onLogout, onStartClass, onJoinClass, o
 
   const sidebarContent = (
     <>
-      <div className="p-6 border-b border-slate-800">
+      <div className="p-6 border-b-3 border-slate-950 bg-[#162720]">
         <div className="flex items-center gap-3">
-          <div className="bg-indigo-500 w-8 h-8 flex items-center justify-center rounded text-lg select-none">🏫</div>
-          <h1 className="font-extrabold tracking-tight text-lg uppercase select-none">विद्या Portal</h1>
+          <div className="bg-yellow-300 text-slate-900 border-2 border-slate-950 w-9 h-9 flex items-center justify-center rounded-none text-xl select-none shadow-[2px_2px_0px_0px_#000] rotate-[-3deg]">🏫</div>
+          <h1 className="font-extrabold tracking-tight text-base uppercase text-yellow-300 select-none">विद्यालय Portal</h1>
         </div>
       </div>
       
-      <div className="flex-1 py-6">
+      <div className="flex-1 py-6 bg-[#1e3a2f]">
         <div className="px-6 mb-4">
-          <p className="text-[10px] text-slate-500 uppercase tracking-widest font-mono">Main Directory</p>
+          <p className="text-[10px] text-teal-300 uppercase tracking-widest font-mono font-bold">★ MAIN DIRECTORY ★</p>
         </div>
         <ul className="space-y-1">
-          <li className="px-6 py-3 bg-indigo-600/10 border-l-4 border-indigo-500 text-indigo-400 flex items-center gap-3 font-semibold text-sm transition">
+          <li className="px-6 py-3 bg-[#244637] border-l-4 border-yellow-300 text-yellow-300 flex items-center gap-3 font-extrabold text-xs uppercase tracking-wider transition select-none">
             <span>📊</span> Dashboard
           </li>
           <li 
             onClick={() => setFilterQuery('')}
-            className="px-6 py-3 hover:bg-slate-800 transition-colors cursor-pointer flex items-center gap-3 text-slate-400 text-sm font-medium"
+            className="px-6 py-3 hover:bg-[#284d3e] transition-colors cursor-pointer flex items-center gap-3 text-slate-300 text-xs uppercase tracking-wider font-extrabold"
           >
             <span>📅</span> Scheduled Classes
           </li>
@@ -249,7 +264,7 @@ export default function Dashboard({ user, onLogout, onStartClass, onJoinClass, o
             <li 
               id="sidebar-admin-btn"
               onClick={onOpenAdmin}
-              className="px-6 py-3 hover:bg-slate-800 transition-colors cursor-pointer flex items-center gap-3 text-slate-400 text-sm font-medium"
+              className="px-6 py-3 hover:bg-[#284d3e] transition-colors cursor-pointer flex items-center gap-3 text-slate-300 text-xs uppercase tracking-wider font-extrabold"
             >
               <span>⚙️</span> Admin Console
             </li>
@@ -257,16 +272,16 @@ export default function Dashboard({ user, onLogout, onStartClass, onJoinClass, o
         </ul>
       </div>
 
-      <div className="p-6 bg-slate-950">
-        <div className="text-[10px] uppercase tracking-widest text-slate-500 mb-2 font-mono">System Integrity</div>
+      <div className="p-6 bg-[#162720] border-t-3 border-slate-950">
+        <div className="text-[10px] uppercase tracking-widest text-teal-400 mb-2 font-mono font-bold">System Status:</div>
         <div className="flex items-center gap-2 mb-1.5">
-          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-md shadow-emerald-500/20"></div>
-          <div className="text-xs text-slate-300">Firebase Live</div>
+          <div className="w-2 h-2 rounded-full bg-emerald-450 animate-pulse"></div>
+          <div className="text-xs text-slate-300 font-mono">Firebase Online</div>
         </div>
         <div className="flex items-center gap-2">
-          <div className={`w-1.5 h-1.5 rounded-full ${appsScriptUrl ? 'bg-emerald-500 shadow-md shadow-emerald-500/20' : 'bg-slate-600'}`}></div>
-          <div className="text-xs text-slate-300">
-            {appsScriptUrl ? 'Apps Script Sync' : 'Apps Script Option'}
+          <div className={`w-2 h-2 rounded-full ${appsScriptUrl ? 'bg-emerald-450 animate-pulse' : 'bg-amber-400'}`}></div>
+          <div className="text-xs text-slate-300 font-mono">
+            {appsScriptUrl ? 'Sheets Configured' : 'Offline Fallback'}
           </div>
         </div>
       </div>
@@ -274,27 +289,27 @@ export default function Dashboard({ user, onLogout, onStartClass, onJoinClass, o
   );
 
   return (
-    <div id="dashboard-layout" className="min-h-screen bg-slate-50 text-slate-800 flex overflow-hidden font-sans">
+    <div id="dashboard-layout" className="min-h-screen bg-grid-paper text-slate-900 flex overflow-hidden font-sans">
       
       {/* SIDEBAR NAVIGATION (Desktop) */}
-      <nav className="w-64 bg-slate-900 text-white hidden lg:flex flex-col border-r border-slate-800 shrink-0 select-none">
+      <nav className="w-64 bg-[#1e3a2f] text-white hidden lg:flex flex-col border-r-4 border-slate-950 shrink-0 select-none">
         {sidebarContent}
       </nav>
 
       {/* MOBILE HEADER & NAVIGATION */}
       <AnimatePresence>
         {mobileMenuOpen && (
-          <div className="fixed inset-0 z-50 bg-slate-900/65 flex lg:hidden">
+          <div className="fixed inset-0 z-50 bg-slate-950/60 flex lg:hidden">
             <motion.div 
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'tween', duration: 0.25 }}
-              className="w-64 h-full bg-slate-900 text-white flex flex-col border-r border-slate-800 relative"
+              className="w-64 h-full bg-[#1e3a2f] text-white flex flex-col border-r-4 border-slate-950 relative"
             >
               <button 
                 onClick={() => setMobileMenuOpen(false)}
-                className="absolute top-4 right-4 p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
+                className="absolute top-4 right-4 p-1.5 rounded-none bg-slate-850 hover:bg-slate-750 text-white border-2 border-slate-950 transition font-extrabold"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -309,40 +324,63 @@ export default function Dashboard({ user, onLogout, onStartClass, onJoinClass, o
       <main className="flex-1 flex flex-col overflow-y-auto h-screen relative">
         
         {/* TOP HEADER BAR */}
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 md:px-8 shrink-0 sticky top-0 z-20 shadow-sm">
+        <header className="h-20 bg-[#faf9f6]/95 border-b-4 border-slate-950 flex items-center justify-between px-6 md:px-8 shrink-0 sticky top-0 z-20 shadow-sm">
           <div className="flex items-center gap-3">
             <button 
               onClick={() => setMobileMenuOpen(true)}
-              className="p-1.5 rounded hover:bg-slate-100 text-slate-600 lg:hidden transition"
+              className="p-1 px-2.5 border-2 border-slate-950 bg-white hover:bg-slate-100 text-slate-900 lg:hidden transition font-extrabold rounded-none shadow-[2px_2px_0px_0px_#000]"
               aria-label="Open menu"
             >
               <Menu className="h-5 w-5" />
             </button>
-            <div className="flex items-center gap-2 text-slate-500 text-sm">
-              <span className="capitalize">{user.role}</span>
+            <div className="flex items-center gap-2 text-slate-700 text-xs font-mono font-bold uppercase">
+              <span className="bg-yellow-200 border-2 border-slate-950 px-2.5 py-0.5 rotate-[-2deg] font-extrabold text-slate-900 shadow-[2px_2px_0px_0px_#000]">{user.role}</span>
               <span>/</span>
-              <span className="text-slate-900 font-semibold italic">Dashboard Overview</span>
+              <span className="text-slate-955 font-extrabold italic">Dashboard Page</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3.5 flex-wrap">
             {/* Quick Admin action */}
             {(user.role === 'admin' || user.email === "himanshudangwal16@gmail.com") && (
               <button
                 id="header-admin-btn"
                 onClick={onOpenAdmin}
-                className="hidden md:flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold px-3.5 py-1.5 border border-indigo-200 text-xs transition rounded-sm"
+                className="hidden md:flex items-center gap-1.5 bg-yellow-50 hover:bg-yellow-105 text-slate-900 font-extrabold px-3.5 py-2 border-2 border-slate-950 text-xs transition rounded-none shadow-[2px_2px_0px_0px_#000]"
               >
-                <Grid className="h-3.5 w-3.5" /> Admin Console
+                <Grid className="h-3.5 w-3.5" /> Admin Panel
               </button>
             )}
+
+            {/* Deploy to Google Sites Toggle */}
+            <button
+              id="header-sites-deploy-btn"
+              onClick={() => {
+                setShowSitesDeployGuide(!showSitesDeployGuide);
+                setShowSettings(false); // Close Apps Script drawer to keep visual space clean
+              }}
+              className={`flex items-center gap-1.5 px-3 py-2 border-2 border-slate-950 rounded-none font-extrabold text-[11px] uppercase tracking-wider transition ${
+                showSitesDeployGuide 
+                  ? 'bg-emerald-600 text-white shadow-inner translate-y-0.5' 
+                  : 'bg-emerald-100 hover:bg-emerald-200 text-slate-900 shadow-[2px_2px_0px_0px_#000]'
+              }`}
+              title="Deploy & Embed via Google Sites"
+            >
+              <Globe className="h-3.5 w-3.5 shrink-0 animate-spin-slow" />
+              <span>Embed on Sites</span>
+            </button>
 
             {/* Apps Script toggle settings */}
             {user.role !== 'student' && (
               <button
                 id="header-settings-btn"
-                onClick={() => setShowSettings(!showSettings)}
-                className="p-2 border border-slate-200 rounded-sm hover:bg-slate-50 text-slate-600 transition"
+                onClick={() => {
+                  setShowSettings(!showSettings);
+                  setShowSitesDeployGuide(false); // Close Sites guide
+                }}
+                className={`p-2 border-2 border-slate-950 rounded-none transition ${
+                  showSettings ? 'bg-yellow-300 text-slate-900 shadow-inner' : 'bg-white hover:bg-slate-50 text-slate-905 shadow-[2px_2px_0px_0px_#000]'
+                }`}
                 title="Integrate Google Apps Script"
               >
                 <Settings className="h-4 w-4" />
@@ -353,19 +391,19 @@ export default function Dashboard({ user, onLogout, onStartClass, onJoinClass, o
             <button
               id="header-logout-btn"
               onClick={onLogout}
-              className="p-2 border border-slate-200 rounded-sm hover:bg-slate-50 text-slate-600 transition"
+              className="p-2 border-2 border-slate-950 bg-white hover:bg-slate-50 text-slate-900 shadow-[2px_2px_0px_0px_#000] rounded-none transition"
               title="Sign Out"
             >
               <LogOut className="h-4 w-4" />
             </button>
 
             {/* User Profile info */}
-            <div className="flex items-center gap-3 border-l border-slate-200 pl-4">
+            <div className="flex items-center gap-3 border-l-2 border-dashed border-slate-350 pl-4">
               <div className="text-right hidden sm:block">
-                <div className="text-xs font-bold text-slate-900">{user.name}</div>
-                <div className="text-[10px] text-slate-400 uppercase tracking-wider font-mono">Role: {user.role}</div>
+                <div className="text-xs font-black text-slate-900">{user.name}</div>
+                <div className="text-[10px] text-slate-500 uppercase tracking-wider font-mono font-bold">ID: {user.role}</div>
               </div>
-              <div className="w-9 h-9 rounded-full bg-indigo-600 border border-indigo-700 text-white shadow-sm flex items-center justify-center font-bold text-xs select-none">
+              <div className="w-9 h-9 rounded-none bg-[#a855f7] border-2 border-slate-950 text-white shadow-[2px_2px_0px_0px_#000] flex items-center justify-center font-black text-xs select-none rotate-3">
                 {userInitials}
               </div>
             </div>
@@ -377,16 +415,16 @@ export default function Dashboard({ user, onLogout, onStartClass, onJoinClass, o
           
           {/* Error notification header */}
           {error && (
-            <div className="p-4 rounded-sm bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start space-x-2">
+            <div className="p-4 rounded-none bg-rose-50 border-2 border-slate-950 text-rose-850 text-xs flex items-start space-x-2 font-mono">
               <AlertCircle className="h-4.5 w-4.5 text-rose-600 shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
           )}
 
           {sheetsLink && (
-            <div className="p-4 rounded-sm bg-emerald-50 border border-emerald-250 text-emerald-900 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs animate-fade-in" id="dashboard-sheets-success-banner">
+            <div className="p-4 rounded-none bg-emerald-50 border-2 border-slate-950 text-slate-900 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-[4px_4px_0px_0px_#000] animate-fade-in" id="dashboard-sheets-success-banner">
               <div className="flex items-center space-x-2.5">
-                <FileSpreadsheet className="h-5 w-5 text-emerald-600 shrink-0" />
+                <FileSpreadsheet className="h-5 w-5 text-emerald-650 shrink-0" />
                 <span>
                   <strong>Google Sheets Report Deployed!</strong> Your classroom session summary, attendee roster, and speech transcript have been successfully synced.
                 </span>
@@ -395,7 +433,7 @@ export default function Dashboard({ user, onLogout, onStartClass, onJoinClass, o
                 href={sheetsLink}
                 target="_blank"
                 rel="noreferrer noopener"
-                className="inline-flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold px-4 py-2 rounded-sm uppercase tracking-wider shadow-sm transition"
+                className="inline-flex items-center justify-center bg-emerald-250 hover:bg-emerald-300 text-slate-900 text-[10px] font-extrabold px-4 py-2 border-2 border-slate-950 rounded-none uppercase tracking-wider shadow-[2px_2px_0px_0px_#000] transition active:translate-y-0.5 active:shadow-[1px_1px_0px_0px_#000]"
               >
                 Open Google Sheet
               </a>
@@ -408,6 +446,48 @@ export default function Dashboard({ user, onLogout, onStartClass, onJoinClass, o
               <span>{sheetsError}</span>
             </div>
           )}
+
+          {/* Non-blocking Google Sheets Sync Confirmation Dialog */}
+          <AnimatePresence>
+            {showExportModal && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="p-5 rounded-sm bg-indigo-50 border border-indigo-200 text-indigo-950 anim-fade-in shadow-xs"
+                id="sheets-nonblocking-confirm-banner"
+              >
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <FileSpreadsheet className="h-5 w-5 text-indigo-600 shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="text-xs font-bold text-indigo-950 uppercase tracking-wider font-mono">
+                        Google Sheets Authentication Required
+                      </h4>
+                      <p className="text-xs text-indigo-850 mt-1 leading-relaxed">
+                        Exporting the <strong>{showExportModal.subject}</strong> classroom summary, attendee roster, and speech transcript to Google Sheets requires authorization.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+                    <button
+                      onClick={() => handleExportSessionToSheets(showExportModal, true)}
+                      className="flex-1 sm:flex-none justify-center bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] uppercase tracking-wider px-4 py-2 rounded-sm transition flex items-center gap-1.5"
+                    >
+                      <ArrowUpRight className="h-3.5 w-3.5" />
+                      Connect & Sync
+                    </button>
+                    <button
+                      onClick={() => setShowExportModal(null)}
+                      className="flex-1 sm:flex-none justify-center bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-[10px] uppercase tracking-wider px-4 py-2 rounded-sm transition"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Apps Script Web App Integration Overlay */}
           <AnimatePresence>
@@ -461,33 +541,162 @@ export default function Dashboard({ user, onLogout, onStartClass, onJoinClass, o
             )}
           </AnimatePresence>
 
+          {/* Google Sites Deployment & Embedding Guide */}
+          <AnimatePresence>
+            {showSitesDeployGuide && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden"
+                id="sites-deployment-wrapper"
+              >
+                <div className="bg-white border border-emerald-250 p-6 rounded-sm shadow-sm">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100 mb-5 text-slate-800">
+                    <div>
+                      <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                        <Globe className="h-4.5 w-4.5 text-emerald-600 animate-pulse" />
+                        Google Sites Deployment & Embedding Guide
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                        Deploy your digital school virtual classroom platform to Google Sites (sites.google.com) in less than 60 seconds.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setShowSitesDeployGuide(false)}
+                      className="p-1 px-2.5 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-600 rounded-sm font-bold text-[10px] uppercase tracking-wider transition"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+
+                  {/* STEP 1: Copy Embed URL */}
+                  <div className="mb-6">
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider font-mono mb-2">
+                      1. Copy the Portal Application Deployment URL
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value={window.location.origin}
+                        id="sites-embed-url-copy-input"
+                        className="flex-1 bg-slate-50 border border-slate-200 px-3 py-2.5 text-xs font-mono text-slate-700 focus:outline-none rounded-sm select-all"
+                      />
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(window.location.origin);
+                          setCopiedUrl(true);
+                          setTimeout(() => setCopiedUrl(false), 2000);
+                        }}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] uppercase tracking-wider px-4 rounded-sm flex items-center gap-1.5 transition whitespace-nowrap active:scale-95"
+                      >
+                        {copiedUrl ? (
+                          <>
+                            <Check className="h-3.5 w-3.5" />
+                            Copied!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3.5 w-3.5" />
+                            Copy URL
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-slate-400 font-mono mt-1.5 uppercase leading-relaxed">
+                      Tip: You can also use the Shared URL: <span className="text-indigo-600 select-all underline">https://ais-pre-ertira4337b26pi2x6xzjb-888197685662.asia-southeast1.run.app</span> for full user-wide public embedding!
+                    </p>
+                  </div>
+
+                  {/* MAIN STEPS ACCORDION */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-4">
+                    <div className="space-y-4">
+                      {/* SITE CREATION CARD */}
+                      <div className="bg-slate-50 p-4 border border-slate-200 rounded-sm">
+                        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-widest font-mono flex items-center gap-1.5 mb-2">
+                          <span className="bg-emerald-100 text-emerald-800 w-5 h-5 rounded-full inline-flex items-center justify-center text-[10px] shrink-0 font-bold">2</span>
+                          Open Google Sites
+                        </h4>
+                        <p className="text-xs text-slate-600 leading-relaxed">
+                          Navigate to your desired School Site on <a href="https://sites.google.com" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline inline-flex items-center gap-0.5 font-bold">Google Sites <ArrowUpRight className="h-3 w-3" /></a> (or create a brand new one). Locate the section where you want to embed the portal.
+                        </p>
+                      </div>
+
+                      {/* EMBEDDING FRAME */}
+                      <div className="bg-slate-50 p-4 border border-slate-200 rounded-sm">
+                        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-widest font-mono flex items-center gap-1.5 mb-2">
+                          <span className="bg-emerald-100 text-emerald-800 w-5 h-5 rounded-full inline-flex items-center justify-center text-[10px] shrink-0 font-bold">3</span>
+                          Choose "Embed" Section
+                        </h4>
+                        <p className="text-xs text-slate-600 leading-relaxed mb-2">
+                          On the right-hand panel of your Google Sites editor, click <strong>"Embed" (&lt;/&gt;)</strong>. 
+                        </p>
+                        <p className="text-[11px] text-slate-500 bg-white border border-slate-150 p-2 rounded-xs font-mono">
+                          👉 Select <strong>"By URL"</strong> option, paste the copied Web Portal URL, and ensure you select <strong>"Whole page"</strong> to render the full viewport cleanly.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* SIZING HIGHLIGHTS */}
+                      <div className="bg-slate-50 p-4 border border-slate-200 rounded-sm">
+                        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-widest font-mono flex items-center gap-1.5 mb-2">
+                          <span className="bg-emerald-100 text-emerald-800 w-5 h-5 rounded-full inline-flex items-center justify-center text-[10px] shrink-0 font-bold">4</span>
+                          Resize Embedded Frame
+                        </h4>
+                        <p className="text-xs text-slate-600 leading-relaxed">
+                          Once the portal block is embedded inside your page, click the embed instance to display the blue sizing anchors. 
+                          <strong> Drag the handles horizontally to fill the screen</strong> (full width, 100%) and 
+                          <strong> drag the bottom handle vertically downwards</strong> until the frame height is at least <strong>750px</strong> to totally eliminate double-scrollbars.
+                        </p>
+                      </div>
+
+                      {/* MICROPHONE WARNING */}
+                      <div className="bg-slate-50 p-4 border border-slate-200 rounded-sm">
+                        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-widest font-mono flex items-center gap-1.5 mb-2">
+                          <span className="bg-emerald-100 text-emerald-800 w-5 h-5 rounded-full inline-flex items-center justify-center text-[10px] shrink-0 font-bold">5</span>
+                          Allow Sensor Permissions
+                        </h4>
+                        <p className="text-xs text-slate-600 leading-relaxed">
+                          Because the classrooms translate spoken lectures in real time, teachers and students using the portal will need to allow <strong>Microphone Access</strong>. Since Google Sites loads the portal in a cross-origin iframe, ensure they tap <strong>"Allow microphone"</strong> instantly when prompted.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* STATISTICS PANEL ROW (Geometric Balance Spec) */}
           <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-            <div className="bg-white p-5 border border-slate-200 shadow-sm rounded-sm">
-              <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-1 font-mono">Active Classes</div>
-              <div className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900">{liveCount}</div>
-              <div className="text-xs text-emerald-600 font-medium mt-2 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full inline-block animate-pulse"></span>
+            <div className="bg-[#fefeeb] p-5 border-3 border-slate-900 shadow-[4px_4px_0px_0px_#000] rounded-none rotate-[-1deg]">
+              <div className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider mb-1 font-mono">Active Classes</div>
+              <div className="text-2xl md:text-3xl font-black tracking-tight text-slate-950 font-sans">{liveCount}</div>
+              <div className="text-xs text-emerald-700 font-bold mt-2 flex items-center gap-1.5 font-sans">
+                <span className="w-2.5 h-2.5 bg-emerald-550 border border-slate-950 rounded-full inline-block animate-pulse"></span>
                 <span>{liveCount} currently live</span>
               </div>
             </div>
 
-            <div className="bg-white p-5 border border-slate-200 shadow-sm rounded-sm">
-              <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-1 font-mono">Scheduled Classes</div>
-              <div className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900">{scheduledCount}</div>
-              <div className="text-xs text-slate-500 font-medium mt-2">Across all grades</div>
+            <div className="bg-[#eefcfc] p-5 border-3 border-slate-900 shadow-[4px_4px_0px_0px_#000] rounded-none rotate-[1deg]">
+              <div className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider mb-1 font-mono">Scheduled Classes</div>
+              <div className="text-2xl md:text-3xl font-black tracking-tight text-slate-950 font-sans">{scheduledCount}</div>
+              <div className="text-xs text-indigo-700 font-bold mt-2 font-sans">Across all grades</div>
             </div>
 
-            <div className="bg-white p-5 border border-slate-200 shadow-sm rounded-sm">
-              <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-1 font-mono">Speech AI Code</div>
-              <div className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900 italic font-mono text-indigo-600">hi-IN</div>
-              <div className="text-xs text-slate-500 font-medium mt-2">Hindi Support Active</div>
+            <div className="bg-[#fcf3ff] p-5 border-3 border-slate-900 shadow-[4px_4px_0px_0px_#000] rounded-none rotate-[-0.5deg]">
+              <div className="text-[10px] text-slate-505 font-extrabold uppercase tracking-wider mb-1 font-mono">Speech AI Code</div>
+              <div className="text-2xl md:text-3xl font-black tracking-tight text-slate-950 italic font-mono">hi-IN</div>
+              <div className="text-xs text-[#a855f7] font-bold mt-2 font-sans">Hindi Voice Enabled</div>
             </div>
 
-            <div className="bg-white p-5 border border-slate-200 shadow-sm rounded-sm">
-              <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-1 font-mono">Platform Cost</div>
-              <div className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900 italic text-emerald-600">₹0</div>
-              <div className="text-xs text-emerald-600 font-medium mt-2">Free Services Tier</div>
+            <div className="bg-emerald-50 p-5 border-3 border-slate-900 shadow-[4px_4px_0px_0px_#000] rounded-none rotate-[0.5deg]">
+              <div className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider mb-1 font-mono">Platform Cost</div>
+              <div className="text-2xl md:text-3xl font-black tracking-tight text-emerald-800 italic font-sans">₹0</div>
+              <div className="text-xs text-emerald-700 font-bold mt-2 font-sans">Free Services Tier</div>
             </div>
           </section>
 
@@ -495,27 +704,63 @@ export default function Dashboard({ user, onLogout, onStartClass, onJoinClass, o
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-0">
             
             {/* Live & Scheduled Classes List panel (8 cols) */}
-            <div className="lg:col-span-8 flex flex-col bg-white border border-slate-200 shadow-sm rounded-sm overflow-hidden min-h-[400px]">
+            <div className="lg:col-span-8 flex flex-col bg-[#faf9f6]/95 border-3 border-slate-900 shadow-[6px_6px_0px_0px_#000] rounded-none overflow-hidden">
               
-              <div className="px-6 py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
+              <div className="px-6 py-4 border-b-3 border-slate-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-yellow-100">
                 <div>
-                  <h2 className="font-bold text-slate-800 text-sm uppercase tracking-wider">Scheduled Virtual Classes</h2>
-                  <p className="text-[10px] text-slate-500 font-mono mt-0.5">Real-time snapshots from classroom logs</p>
+                  <h2 className="font-extrabold text-slate-950 text-sm uppercase tracking-wider">Scheduled Virtual Classes</h2>
+                  <p className="text-[10px] text-slate-605 font-mono mt-0.5">Real-time snapshots from classroom logs</p>
                 </div>
-
+  
                 {/* Filter and search form integration inside panel */}
                 <div className="relative w-full sm:w-auto sm:min-w-[240px]">
-                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-900">
                     <Search className="h-3.5 w-3.5" />
                   </span>
                   <input
                     type="text"
-                    placeholder="Search classes/grade/teacher..."
+                    placeholder="Search grade or subject..."
                     value={filterQuery}
                     onChange={(e) => setFilterQuery(e.target.value)}
-                    className="w-full bg-white border border-slate-200 pl-8.5 pr-3 py-1.5 text-xs focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-sm"
+                    className="w-full bg-white border-2 border-slate-950 pl-8.5 pr-3 py-1.5 text-xs font-mono focus:outline-none focus:bg-[#fffbeb] rounded-none shadow-[2px_2px_0px_0px_#000]"
                   />
                 </div>
+              </div>
+
+              {/* Dynamic Status Tabs sub-bar */}
+              <div className="px-6 py-2.5 border-b-2 border-slate-900 flex items-center space-x-1.5 overflow-x-auto bg-slate-50 shrink-0 scrollbar-none" id="status-tabs-strip">
+                {[
+                  { id: 'all', label: 'All Classes' },
+                  { id: 'live', label: 'Live Active' },
+                  { id: 'scheduled', label: 'Scheduled Only' },
+                  { id: 'ended', label: 'Ended Lectures' }
+                ].map((tab) => {
+                  const isActive = statusFilter === tab.id;
+                  const count = tab.id === 'all' 
+                    ? sessions.length 
+                    : sessions.filter(s => s.status === tab.id).length;
+                  
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setStatusFilter(tab.id as any)}
+                      className={`text-[9px] md:text-[10px] px-3 py-1.5 rounded-none transition font-black uppercase tracking-wider cursor-pointer whitespace-nowrap select-none flex items-center gap-1.5 border-2 ${
+                        isActive
+                          ? 'bg-slate-955 border-slate-950 text-white shadow-[2px_2px_0px_0px_#000] translate-y-[-1px]'
+                          : 'text-slate-800 bg-white border-slate-950 hover:bg-slate-100 shadow-[1px_1px_0px_0px_#000]'
+                      }`}
+                    >
+                      <span>{tab.label}</span>
+                      <span className={`text-[8px] font-mono px-1 py-0.2 rounded-none border ${
+                        isActive 
+                          ? 'bg-slate-850 text-slate-200 border-slate-700' 
+                          : 'bg-slate-100 text-slate-600 border-slate-300'
+                      }`}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
 
               {/* Attendance list tables / list cards wrapper */}
@@ -594,9 +839,9 @@ export default function Dashboard({ user, onLogout, onStartClass, onJoinClass, o
                                 {isLive ? (
                                   <button
                                     onClick={() => isHost ? onStartClass(session) : onJoinClass(session)}
-                                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-3.5 py-1.5 rounded-sm uppercase tracking-wider transition flex items-center gap-1"
+                                    className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-extrabold text-[10px] px-3.5 py-1.5 border-2 border-slate-950 rounded-none uppercase tracking-wider shadow-[2px_2px_0px_0px_#000] active:translate-y-0.5 active:shadow-[1px_1px_0px_0px_#000] transition-all flex items-center gap-1.5"
                                   >
-                                    <Play className="h-3 w-3 fill-current mt-[-1px]" />
+                                    <Play className="h-3 w-3 fill-current mt-[-1px] text-slate-950" />
                                     {isHost ? 'Resume' : 'Join'}
                                   </button>
                                 ) : isScheduled ? (
@@ -604,25 +849,25 @@ export default function Dashboard({ user, onLogout, onStartClass, onJoinClass, o
                                     {isHost ? (
                                       <button
                                         onClick={() => onStartClass(session)}
-                                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] px-3.5 py-1.5 rounded-sm uppercase tracking-wider transition"
+                                        className="bg-yellow-300 hover:bg-yellow-405 text-slate-900 font-extrabold text-[10px] px-3.5 py-1.5 border-2 border-slate-950 rounded-none uppercase tracking-wider shadow-[2px_2px_0px_0px_#000] active:translate-y-0.5 active:shadow-[1px_1px_0px_0px_#000] transition-all"
                                       >
                                         Start Class
                                       </button>
                                     ) : (
-                                      <span className="text-[10px] text-slate-400 italic">Locked</span>
+                                      <span className="text-[10px] text-slate-500 italic font-mono font-bold">Locked</span>
                                     )}
                                   </>
                                 ) : (
                                   <div className="flex items-center gap-2">
-                                    <span className="text-[9px] text-slate-400 italic uppercase">Closed</span>
+                                    <span className="text-[9px] text-slate-500 italic uppercase font-mono font-bold">Closed</span>
                                     {(isHost || user.role === 'admin') && (
                                       <button
                                         id={`export-sheets-dash-${session.sessionId}`}
                                         onClick={() => handleExportSessionToSheets(session)}
                                         disabled={sessionExportingId === session.sessionId}
-                                        className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 disabled:opacity-50 border border-emerald-200 font-bold text-[9px] px-2.5 py-1 rounded-sm uppercase tracking-wider transition flex items-center gap-1 shrink-0"
+                                        className="bg-emerald-50 hover:bg-emerald-100 text-slate-950 disabled:opacity-50 border-2 border-slate-950 font-black text-[9px] px-2.5 py-1 rounded-none uppercase tracking-wider shadow-[2px_2px_0px_0px_#000] active:translate-y-0.5 active:shadow-[1px_1px_0px_0px_#000] transition-all flex items-center gap-1 shrink-0"
                                       >
-                                        <FileSpreadsheet className="h-3 w-3" />
+                                        <FileSpreadsheet className="h-3 w-3 text-slate-900" />
                                         {sessionExportingId === session.sessionId ? 'Syncing...' : 'Export Sheet'}
                                       </button>
                                     )}
@@ -633,7 +878,7 @@ export default function Dashboard({ user, onLogout, onStartClass, onJoinClass, o
                                 {isHost && session.status !== 'ended' && (
                                   <button
                                     onClick={() => handleDeleteSession(session.sessionId)}
-                                    className="text-slate-400 hover:text-rose-600 p-1.5 transition rounded hover:bg-slate-100 ml-1"
+                                    className="text-slate-800 hover:text-rose-600 p-1.5 border-2 border-transparent hover:border-slate-950 transition rounded-none hover:bg-white ml-1"
                                     title="Cancel Classroom Booking"
                                   >
                                     <VideoOff className="w-3.5 h-3.5" />
@@ -654,33 +899,33 @@ export default function Dashboard({ user, onLogout, onStartClass, onJoinClass, o
             <div className="lg:col-span-4 flex flex-col space-y-6">
               
               {/* Box 1: Quick details card */}
-              <div className="bg-slate-900 text-white p-6 shadow-md border-t-4 border-indigo-500 rounded-sm">
-                <h3 className="text-xs font-bold uppercase tracking-widest text-indigo-400 mb-3 font-mono">Virtual Meet Engine</h3>
-                <p className="text-xs text-slate-400 leading-relaxed mb-4 italic">
+              <div className="bg-[#1e3a2f] text-yellow-100 p-6 shadow-[5px_5px_0px_0px_#000] border-3 border-slate-900 rounded-none rotate-[0.5deg]">
+                <h3 className="text-xs font-black uppercase tracking-widest text-emerald-355 mb-3 font-mono">★ Virtual Meet Engine ★</h3>
+                <p className="text-xs text-slate-300 leading-relaxed mb-4 font-mono">
                   Google Sheet calendar codes are actively generating. Class meeting URLs register automatically inside firestore logs.
                 </p>
-                <div className="bg-slate-950 p-3 rounded-sm text-[10px] font-mono text-indigo-300 break-all border border-slate-800">
-                  {appsScriptUrl ? appsScriptUrl : "script.google.com/macros/s/AKfycb.../exec (Fallback configuration Active)"}
+                <div className="bg-[#11231c] p-3 rounded-none text-[10.5px] font-mono text-emerald-400 break-all border-2 border-slate-950 shadow-inner">
+                  {appsScriptUrl ? appsScriptUrl : "script.google.com/macros/s/AKfycb.../exec (Fallback Active)"}
                 </div>
               </div>
 
               {/* Box 2: Quick actions / scheduling trigger */}
-              <div className="bg-white border border-slate-200 p-6 rounded-sm flex-1 flex flex-col min-h-[300px]">
-                <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">Quick Actions</h3>
+              <div className="bg-[#faf9f6] border-3 border-slate-900 p-6 rounded-none shadow-[5px_5px_0px_0px_#000] flex-1 flex flex-col min-h-[300px] rotate-[-0.5deg]">
+                <h3 className="text-xs font-black text-slate-950 uppercase tracking-widest mb-4 border-b-2 border-dashed border-slate-300 pb-2 font-mono">✐ Quick Actions</h3>
                 
-                <div className="space-y-2.5 flex-1">
+                <div className="space-y-3 flex-1">
                   
                   {user.role !== 'student' ? (
                     <button
                       id="side-schedule-class-btn"
                       onClick={() => setShowCreateModal(true)}
-                      className="w-full text-left flex items-center justify-between p-3 border border-slate-150 hover:border-indigo-300 hover:bg-indigo-50/50 transition-all text-xs group rounded-sm"
+                      className="w-full text-left flex items-center justify-between p-3.5 bg-[#fefeeb] hover:bg-yellow-50 border-2 border-slate-950 shadow-[2.5px_2.5px_0px_0px_#000] active:translate-y-0.5 active:shadow-[1px_1px_0px_0px_#000] transition-all text-xs cursor-pointer group rounded-none"
                     >
-                      <span className="text-slate-700 group-hover:text-indigo-700 font-bold uppercase tracking-wider">Book New Classroom Slot</span>
-                      <span className="text-indigo-500 font-bold font-mono">+</span>
+                      <span className="text-slate-905 group-hover:text-yellow-750 font-black uppercase tracking-wider font-sans">Book New Class Slot</span>
+                      <span className="text-slate-905 font-extrabold font-mono text-sm">+</span>
                     </button>
                   ) : (
-                    <div className="p-3 border border-slate-205 text-slate-405 text-xs italic bg-slate-50/60 leading-snug">
+                    <div className="p-4 border-2 border-slate-950 text-slate-800 text-xs italic bg-[#eefcfc] leading-relaxed font-sans shadow-[2.5px_2.5px_0px_0px_#000]">
                       Logged in as Student. To join virtual sessions and transcripts, select an active classroom in the scheduled board list.
                     </div>
                   )}
@@ -689,10 +934,10 @@ export default function Dashboard({ user, onLogout, onStartClass, onJoinClass, o
                     <button
                       id="side-admin-redirect-btn"
                       onClick={onOpenAdmin}
-                      className="w-full text-left flex items-center justify-between p-3 border border-slate-155 hover:border-indigo-300 hover:bg-indigo-50/50 transition-all text-xs group rounded-sm"
+                      className="w-full text-left flex items-center justify-between p-3.5 bg-white hover:bg-slate-50 border-2 border-slate-950 shadow-[2.5px_2.5px_0px_0px_#000] active:translate-y-0.5 active:shadow-[1px_1px_0px_0px_#000] transition-all text-xs cursor-pointer group rounded-none"
                     >
-                      <span className="text-slate-700 group-hover:text-indigo-700 font-bold uppercase tracking-wider">Configure School Roles</span>
-                      <span className="text-indigo-500 font-mono">👥</span>
+                      <span className="text-slate-900 group-hover:text-amber-800 font-black uppercase tracking-wider font-sans">Configure School Roles</span>
+                      <span className="text-slate-900 font-mono">👥</span>
                     </button>
                   )}
 

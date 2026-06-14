@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { signInWithGoogle, app_getDoc, app_setDoc, app_updateDoc } from '../firebase';
-import { BookOpen, GraduationCap, Sparkles, UserCheck, ShieldAlert } from 'lucide-react';
+import { BookOpen, GraduationCap, Sparkles, UserCheck, ShieldAlert, ArrowUpRight, Globe, Lock } from 'lucide-react';
 import { UserProfile, UserRole } from '../types';
 
 interface LoginProps {
@@ -16,6 +16,19 @@ interface LoginProps {
 export default function Login({ onLoginSuccess }: LoginProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isEmbedded, setIsEmbedded] = useState(false);
+
+  useEffect(() => {
+    // Detect if nested in an iframe (e.g. Google Sites)
+    try {
+      if (window.self !== window.top) {
+        setIsEmbedded(true);
+      }
+    } catch (e) {
+      // Cross-origin access error also indicates we are iframe nested
+      setIsEmbedded(true);
+    }
+  }, []);
 
   // Helper to register user in Firestore or fetch existing profile
   const handleProfileSetup = async (uid: string, email: string, name: string, preferredRole: UserRole = 'student') => {
@@ -119,146 +132,207 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   };
 
   return (
-    <div id="login-container" className="min-h-screen bg-slate-50 flex flex-col lg:flex-row font-sans selection:bg-indigo-100">
+    <div id="login-container" className="min-h-screen bg-grid-paper flex flex-col items-center justify-center p-4 md:p-8 font-sans selection:bg-yellow-250">
       
-      {/* LEFT SIDEBAR HERO: Slate display banner */}
-      <div className="w-full lg:w-[420px] bg-slate-900 text-white flex flex-col justify-between p-8 lg:p-12 border-b lg:border-b-0 lg:border-r border-slate-800 shrink-0">
-        <div>
-          <div className="flex items-center gap-3.5 mb-10">
-            <div className="bg-indigo-600 text-white p-2.5 rounded-sm shadow-md">
-              <GraduationCap className="h-6 w-6" />
+      {/* Container: Vintage School Desk Surface */}
+      <div className="w-full max-w-5xl flex flex-col lg:flex-row bg-[#efebe4] border-4 border-slate-900 rounded-none shadow-[10px_10px_0px_0px_#0f172a] overflow-hidden relative">
+        
+        {/* Top Wood Trim Bar */}
+        <div className="w-full h-4 bg-amber-800 border-b-4 border-slate-900 absolute top-0 left-0 z-20"></div>
+
+        {/* LEFT PAGE: Notebook Doodles & Board Info */}
+        <div className="w-full lg:w-1/2 bg-composition-marble text-white p-8 pt-10 lg:p-12 lg:pt-14 flex flex-col justify-between border-b-4 lg:border-b-0 lg:border-r-4 border-slate-900 relative">
+          
+          {/* Classic Composition Label Overlay */}
+          <div className="absolute top-6 right-6 bg-white border-2 border-slate-900 px-3 py-1 text-slate-900 font-mono text-[9px] uppercase tracking-widest font-extrabold shadow-[2px_2px_0px_0px_#000] rotate-2 select-none">
+            CLASS OF 1996
+          </div>
+
+          <div>
+            {/* Retro Sticker Styled Brand Logo */}
+            <div className="flex items-center gap-3.5 mb-10">
+              <div className="bg-yellow-300 text-slate-900 p-3 border-3 border-slate-900 shadow-[3px_3px_0px_0px_#000] rounded-none rotate-[-3deg] transform hover:rotate-0 transition">
+                <GraduationCap className="h-7 w-7 text-slate-950" />
+              </div>
+              <div className="rotate-[1deg]">
+                <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight uppercase drop-shadow-[2px_2px_0px_#000] font-sans flex items-center gap-1.5">
+                  विद्यालय <span className="text-yellow-300 font-mono text-sm underline shrink-0">PORTAL</span>
+                </h1>
+                <p className="text-[10px] text-teal-300 font-mono tracking-widest uppercase font-bold">100% DIGITAL VIRTUAL WORKSPACE</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl font-extrabold text-white tracking-tight uppercase">विद्यालय Portal</h1>
-              <p className="text-[10px] text-indigo-400 font-mono tracking-wider uppercase font-bold">Virtual School Platform</p>
+
+            {/* Simulated Desktop Blackboard Widget */}
+            <div className="bg-chalkboard border-4 border-slate-800 p-6 shadow-inner text-slate-200 rounded-xs mb-8 rotate-[-1deg] transform hover:rotate-0 transition duration-305 min-h-[180px] flex flex-col justify-between">
+              <div>
+                <div className="text-[10px] text-yellow-250 font-mono uppercase tracking-widest border-b border-dashed border-emerald-800 pb-1 mb-2">
+                  📌 TODAY'S WORKSPACE MEMO
+                </div>
+                <h2 className="text-lg md:text-xl font-bold tracking-tight text-white leading-normal font-sans text-yellow-105">
+                  A balanced digital classroom workspace.
+                </h2>
+                <p className="text-slate-300 text-xs leading-relaxed mt-2.5 font-mono">
+                  Welcome to class! Log in to schedule mock virtual lectures, register check-ins, and translate live Hindi/English chats.
+                </p>
+              </div>
+              <div className="text-[10px] text-slate-400 font-mono uppercase text-right mt-4 select-none">
+                ✐ Chalkboard v1.0
+              </div>
             </div>
           </div>
 
-          <div className="space-y-6 my-auto pt-4 lg:pt-12">
-            <h2 className="text-2xl lg:text-3xl font-bold tracking-tight text-white leading-tight">
-              A balanced digital classroom workspace.
-            </h2>
-            <p className="text-slate-400 text-xs leading-relaxed">
-              Log in to access scheduled lectures, connect directly with instructors via Google Meet codes, register your check-ins, and read live translations in real time.
+          <div className="mt-8 lg:mt-0 pt-6 border-t border-slate-800 flex flex-col gap-2.5">
+            <div className="text-[10px] uppercase tracking-widest text-[#a855f7] mb-0.5 font-mono font-extrabold">Workspace Specs:</div>
+            <div className="flex items-center gap-2 text-xs text-slate-300">
+              <span className="bg-yellow-300 text-slate-950 font-mono text-[9px] px-2 py-0.5 font-extrabold rotate-2 shadow-xs border border-slate-950">NEW!</span>
+              <span className="font-mono text-[11px] text-slate-300">Continuous Hindi Transcription Enabled</span>
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT PAGE: The Login Binder Sheet */}
+        <div className="flex-1 bg-lined-paper p-6 md:p-10 lg:p-14 pt-10 flex flex-col justify-between relative min-h-[500px]">
+          
+          {/* Notebook Lined Page Pink Left Margin Marker Rule */}
+          <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-rose-450 opacity-60"></div>
+
+          {/* Doodles & Paperclip Sticky Sticker Overlay */}
+          <div className="absolute top-4 right-4 bg-amber-50 border-2 border-slate-900 p-2 text-slate-905 font-mono text-[10px] shadow-[2px_2px_0px_0px_#000] rotate-[-4deg] max-w-[140px] hidden md:block select-none z-10">
+            <div className="w-5 h-2 bg-slate-400/40 border border-slate-500 rounded-full mx-auto mb-1 flex items-center justify-center"></div>
+            <strong>Memo:</strong> Select a portal login slot to sync live logs!
+          </div>
+
+          <div className="my-auto py-6 pl-6 z-10">
+            <motion.div 
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              className="bg-[#faf9f6]/95 border-3 border-slate-900 shadow-[6px_6px_0px_0px_#0f172a] rounded-none p-6 md:p-8 relative"
+              id="login-card"
+            >
+              {/* Retro Highlighter Title Header */}
+              <div className="mb-6 border-b-2 border-dashed border-slate-300 pb-4">
+                <span className="bg-yellow-200 border border-yellow-300 text-slate-905 rounded-none px-2 py-1 text-[10px] font-mono tracking-wider font-extrabold uppercase">
+                  📓 OFFICE REGISTRY
+                </span>
+                <h3 className="text-xl font-extrabold text-slate-950 uppercase tracking-wide font-sans mt-2">
+                  Sign In to Dashboard
+                </h3>
+                <p className="text-[11px] text-slate-600 mt-1.5 leading-relaxed font-semibold italic">
+                  Instant authorization — Bypass classroom cookies inside iframe nested tabs
+                </p>
+              </div>
+
+              {error && (
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="mb-5 p-3 rounded-none bg-rose-50 border-2 border-slate-950 text-rose-850 text-xs flex items-start space-x-2 font-mono"
+                >
+                  <ShieldAlert className="h-4.5 w-4.5 shrink-0 text-rose-600 mt-0.5" />
+                  <span>{error}</span>
+                </motion.div>
+              )}
+
+              {/* Login option channels */}
+              <div className="space-y-4" id="login-channels-group">
+                
+                {/* 1. Admin Login button */}
+                <button
+                  id="bypass-admin-btn"
+                  onClick={() => handleBypassLogin('admin')}
+                  disabled={loading}
+                  className="w-full flex items-center justify-between p-4 bg-[#fcf3ff] hover:bg-purple-50 border-3 border-slate-900 shadow-[4px_4px_0px_0px_#000] active:translate-y-1 active:shadow-[1px_1px_0px_0px_#000] text-slate-900 font-bold transition duration-150 cursor-pointer group rounded-none"
+                >
+                  <span className="flex items-center gap-3">
+                    <div className="p-2 border-2 border-slate-900 bg-white text-[#8b5cf6] group-hover:bg-[#f3e8ff] transition rounded-none">
+                      <Lock className="h-5 w-5 animate-pulse" />
+                    </div>
+                    <div className="text-left font-sans">
+                      <span className="block uppercase tracking-wider text-slate-900 text-xs font-black">Admin Support Login</span>
+                      <span className="text-[10px] text-[#71717a] font-mono font-bold">Himanshu (Admin Console Active)</span>
+                    </div>
+                  </span>
+                  <span className="bg-[#8b5cf6] text-white text-[9px] font-mono font-black uppercase px-2 py-1 rounded-none border-2 border-slate-900 shrink-0 shadow-[1px_1px_0.5px_0px_#000]">
+                    OFFICE / ADMIN
+                  </span>
+                </button>
+
+                {/* 2. Teacher Login button */}
+                <button
+                  id="bypass-teacher-btn"
+                  onClick={() => handleBypassLogin('teacher')}
+                  disabled={loading}
+                  className="w-full flex items-center justify-between p-4 bg-[#fefeeb] hover:bg-yellow-50 border-3 border-slate-900 shadow-[4px_4px_0px_0px_#000] active:translate-y-1 active:shadow-[1px_1px_0px_0px_#000] text-slate-900 font-bold transition duration-150 cursor-pointer group rounded-none relative"
+                >
+                  <span className="flex items-center gap-3">
+                    <div className="p-2 border-2 border-slate-900 bg-white text-slate-900 group-hover:bg-yellow-250 transition rounded-none">
+                      <BookOpen className="h-5 w-5" />
+                    </div>
+                    <div className="text-left">
+                      <span className="block uppercase tracking-wider text-slate-900 text-xs font-extrabold font-sans">Teacher Login</span>
+                      <span className="text-[10px] text-slate-500 font-mono">Mrs. Sharma (Teacher Check-In)</span>
+                    </div>
+                  </span>
+                  <span className="bg-[#a855f7] text-white text-[9px] font-mono uppercase px-2 py-1 rounded-none border-2 border-slate-900 shrink-0">
+                    LECTURER
+                  </span>
+                </button>
+
+                {/* 3. Student Login button */}
+                <button
+                  id="bypass-student-btn"
+                  onClick={() => handleBypassLogin('student')}
+                  disabled={loading}
+                  className="w-full flex items-center justify-between p-4 bg-[#eefcfc] hover:bg-teal-50 border-3 border-slate-900 shadow-[4px_4px_0px_0px_#000] active:translate-y-1 active:shadow-[1px_1px_0px_0px_#000] text-slate-900 font-bold transition duration-150 cursor-pointer group rounded-none"
+                >
+                  <span className="flex items-center gap-3">
+                    <div className="p-2 border-2 border-slate-900 bg-white text-slate-900 group-hover:bg-teal-220 transition rounded-none">
+                      <GraduationCap className="h-5 w-5" />
+                    </div>
+                    <div className="text-left">
+                      <span className="block uppercase tracking-wider text-slate-900 text-xs font-extrabold font-sans">Student Login</span>
+                      <span className="text-[10px] text-slate-505 font-mono">Aarav Patel (Student Check-In)</span>
+                    </div>
+                  </span>
+                  <span className="bg-[#06b6d4] text-white text-[9px] font-mono uppercase px-2 py-1 rounded-none border-2 border-slate-900 shrink-0">
+                    CLASSROOM
+                  </span>
+                </button>
+
+                {/* Separator line */}
+                <div className="relative my-4 flex items-center justify-center">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t-2 border-slate-300"></div>
+                  </div>
+                  <span className="relative bg-[#faf9f6] px-3.5 text-[9px] font-mono tracking-widest text-slate-500 font-extrabold uppercase select-none">
+                    OR SECURE AUTHENTICATION
+                  </span>
+                </div>
+
+                {/* 4. Google Login Option */}
+                <button
+                  id="google-login-btn"
+                  onClick={handleGoogleLogin}
+                  disabled={loading}
+                  className="w-full flex items-center justify-center gap-2.5 p-3.5 bg-white hover:bg-slate-50 border-3 border-slate-900 shadow-[4px_4px_0px_0px_#000] active:translate-y-0.5 active:shadow-[1px_1px_0px_0px_#000] text-slate-950 font-black tracking-wider uppercase text-xs transition duration-150 cursor-pointer rounded-none"
+                >
+                  <Globe className="h-4 w-4 text-[#4285f4] shrink-0" />
+                  <span>{loading ? 'Authenticating...' : 'Sign In with Google'}</span>
+                </button>
+
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Notebook page footer margin stamp */}
+          <div className="text-center pt-4 border-t-2 border-dashed border-slate-300 z-10 pl-6">
+            <p className="text-[10px] text-slate-550 uppercase tracking-widest font-mono font-bold">
+              ★ SYSTEM VERSION: CLOUDRUN 1996 • SECURE PERSISTENT WORKSPACE STATE ★
             </p>
           </div>
         </div>
 
-        <div className="mt-8 lg:mt-0 pt-6 border-t border-slate-800">
-          <div className="text-[10px] uppercase tracking-widest text-slate-500 mb-2.5 font-mono font-bold">Workspace Capability</div>
-          <div className="flex items-center gap-1.5 text-xs text-slate-300">
-            <Sparkles className="h-4 w-4 text-indigo-400 shrink-0" />
-            <span>Voice AI Multi-lingual Support Active</span>
-          </div>
-        </div>
-      </div>
-
-      {/* RIGHT SIDEBAR LOGIN CARD */}
-      <div className="flex-1 flex flex-col justify-between p-6 md:p-12 lg:p-16 my-auto max-w-xl mx-auto w-full">
-        
-        <div className="my-auto py-6 lg:py-12">
-          <motion.div 
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            className="bg-white border border-slate-200 shadow-sm rounded-sm p-6 md:p-10 relative"
-            id="login-card"
-          >
-            <div className="mb-8 border-b border-slate-100 pb-5">
-              <h3 className="text-xl font-bold text-slate-900 uppercase tracking-wide">Sign In to Dashboard</h3>
-              <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">Select authorization mode to access continuous lecture records</p>
-            </div>
-
-            {error && (
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="mb-5 p-3 rounded-sm bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start space-x-2"
-              >
-                <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5 text-rose-600" />
-                <span>{error}</span>
-              </motion.div>
-            )}
-
-            {/* Google Authentication */}
-            <button
-              id="google-signin-btn"
-              onClick={handleGoogleLogin}
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-2.5 px-5 py-3 border border-slate-250 hover:bg-slate-50 active:bg-slate-100 transition shadow-xs font-bold text-xs text-slate-800 uppercase tracking-wider rounded-sm"
-            >
-              <svg className="h-4 w-4 mr-1 shrink-0" viewBox="0 0 24 24" fill="none">
-                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.85z" fill="#FBBC05"/>
-                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.85c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-              </svg>
-              {loading ? 'Authenticating...' : 'Sign in with Google'}
-            </button>
-
-            {/* Sandbox Bypass Divider */}
-            <div className="relative my-8 select-none">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-200"></div>
-              </div>
-              <div className="relative flex justify-center text-[10px] uppercase tracking-widest font-mono">
-                <span className="bg-white px-3 text-slate-400">Sandbox Demo Bypass</span>
-              </div>
-            </div>
-
-            <div className="space-y-2.5" id="demo-bypass-group">
-              <p className="text-center text-[11px] text-slate-500 mb-2 leading-relaxed">
-                If third-party Google cookies are disabled or blocked in the browser iframe, choose a live demo profile to safely bypass authentication:
-              </p>
-              
-              <button
-                id="bypass-admin-btn"
-                onClick={() => handleBypassLogin('admin')}
-                disabled={loading}
-                className="w-full flex items-center justify-between px-4 py-3 bg-slate-900 border border-slate-950 hover:bg-slate-800 text-white rounded-sm text-xs font-bold transition uppercase tracking-wider"
-              >
-                <span className="flex items-center gap-2">
-                  <UserCheck className="h-4 w-4 text-indigo-400" />
-                  Staff Administrator (Himanshu)
-                </span>
-                <span className="bg-indigo-600 text-white text-[8px] font-mono uppercase px-1.5 py-0.5 rounded-sm">Highest</span>
-              </button>
-
-              <button
-                id="bypass-teacher-btn"
-                onClick={() => handleBypassLogin('teacher')}
-                disabled={loading}
-                className="w-full flex items-center justify-between px-4 py-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-800 rounded-sm text-xs font-bold transition uppercase tracking-wider"
-              >
-                <span className="flex items-center gap-2">
-                  <BookOpen className="h-4 w-4 text-indigo-600" />
-                  Mrs. Sharma (Teacher Key)
-                </span>
-                <span className="bg-indigo-50 border border-indigo-150 text-indigo-750 text-[8px] font-mono uppercase px-1.5 py-0.5 rounded-sm">Lecturer</span>
-              </button>
-
-              <button
-                id="bypass-student-btn"
-                onClick={() => handleBypassLogin('student')}
-                disabled={loading}
-                className="w-full flex items-center justify-between px-4 py-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-800 rounded-sm text-xs font-bold transition uppercase tracking-wider"
-              >
-                <span className="flex items-center gap-2">
-                  <GraduationCap className="h-4 w-4 text-emerald-600 animate-pulse" />
-                  Aarav Patel (Student Mode)
-                </span>
-                <span className="bg-emerald-50 border border-emerald-100 text-emerald-800 text-[8px] font-mono uppercase px-1.5 py-0.5 rounded-sm">Student</span>
-              </button>
-            </div>
-          </motion.div>
-        </div>
-
-        {/* Footer info stamp */}
-        <div className="text-center pt-4 border-t border-slate-200">
-          <p className="text-[10px] text-slate-400 uppercase tracking-widest font-mono">
-            Structured System • Persistent State Sync
-          </p>
-        </div>
       </div>
 
     </div>

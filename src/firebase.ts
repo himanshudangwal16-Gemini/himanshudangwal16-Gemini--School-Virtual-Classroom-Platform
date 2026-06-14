@@ -109,8 +109,14 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 
 // --- HYBRID REALTIME MOCK & REAL DB WRAPPERS ---
 
-export function isDemoBypass(): boolean {
-  return typeof localStorage !== 'undefined' && localStorage.getItem('is_demo_bypass') === 'true';
+export function isDemoBypass(docId?: string): boolean {
+  if (typeof localStorage !== 'undefined' && localStorage.getItem('is_demo_bypass') === 'true') {
+    return true;
+  }
+  if (docId && (docId.includes('demo_account') || docId.startsWith('class_session_demo'))) {
+    return true;
+  }
+  return false;
 }
 
 function getLocalCollection(collectionName: string): any[] {
@@ -225,7 +231,7 @@ function triggerLocalListeners(collectionName: string) {
 }
 
 export async function app_getDoc(collectionName: string, docId: string): Promise<any | null> {
-  if (isDemoBypass()) {
+  if (isDemoBypass(docId)) {
     const list = getLocalCollection(collectionName);
     const keyField = getKeyField(collectionName);
     return list.find((item: any) => item[keyField] === docId) || null;
@@ -235,13 +241,15 @@ export async function app_getDoc(collectionName: string, docId: string): Promise
     const snap = await getDoc(docRef);
     return snap.exists() ? snap.data() : null;
   } catch (err) {
-    handleFirestoreError(err, OperationType.GET, `${collectionName}/${docId}`);
-    return null;
+    console.warn(`Firestore getDoc offline or failed for ${collectionName}/${docId}. Serving from local storage.`, err);
+    const list = getLocalCollection(collectionName);
+    const keyField = getKeyField(collectionName);
+    return list.find((item: any) => item[keyField] === docId) || null;
   }
 }
 
 export async function app_setDoc(collectionName: string, docId: string, data: any): Promise<void> {
-  if (isDemoBypass()) {
+  if (isDemoBypass(docId)) {
     const list = getLocalCollection(collectionName);
     const keyField = getKeyField(collectionName);
     const index = list.findIndex((item: any) => item[keyField] === docId);
@@ -258,12 +266,22 @@ export async function app_setDoc(collectionName: string, docId: string, data: an
     const docRef = doc(db, collectionName, docId);
     await setDoc(docRef, data);
   } catch (err) {
-    handleFirestoreError(err, OperationType.CREATE, `${collectionName}/${docId}`);
+    console.warn(`Firestore setDoc offline or failed for ${collectionName}/${docId}. Saving locally.`, err);
+    const list = getLocalCollection(collectionName);
+    const keyField = getKeyField(collectionName);
+    const index = list.findIndex((item: any) => item[keyField] === docId);
+    if (index !== -1) {
+      list[index] = { ...list[index], ...data };
+    } else {
+      list.push({ ...data });
+    }
+    setLocalCollection(collectionName, list);
+    triggerLocalListeners(collectionName);
   }
 }
 
 export async function app_updateDoc(collectionName: string, docId: string, data: any): Promise<void> {
-  if (isDemoBypass()) {
+  if (isDemoBypass(docId)) {
     const list = getLocalCollection(collectionName);
     const keyField = getKeyField(collectionName);
     const index = list.findIndex((item: any) => item[keyField] === docId);
@@ -278,12 +296,20 @@ export async function app_updateDoc(collectionName: string, docId: string, data:
     const docRef = doc(db, collectionName, docId);
     await updateDoc(docRef, data);
   } catch (err) {
-    handleFirestoreError(err, OperationType.UPDATE, `${collectionName}/${docId}`);
+    console.warn(`Firestore updateDoc offline or failed for ${collectionName}/${docId}. Saving locally.`, err);
+    const list = getLocalCollection(collectionName);
+    const keyField = getKeyField(collectionName);
+    const index = list.findIndex((item: any) => item[keyField] === docId);
+    if (index !== -1) {
+      list[index] = { ...list[index], ...data };
+      setLocalCollection(collectionName, list);
+      triggerLocalListeners(collectionName);
+    }
   }
 }
 
 export async function app_deleteDoc(collectionName: string, docId: string): Promise<void> {
-  if (isDemoBypass()) {
+  if (isDemoBypass(docId)) {
     const list = getLocalCollection(collectionName);
     const keyField = getKeyField(collectionName);
     const filtered = list.filter((item: any) => item[keyField] !== docId);
@@ -295,7 +321,12 @@ export async function app_deleteDoc(collectionName: string, docId: string): Prom
     const docRef = doc(db, collectionName, docId);
     await deleteDoc(docRef);
   } catch (err) {
-    handleFirestoreError(err, OperationType.DELETE, `${collectionName}/${docId}`);
+    console.warn(`Firestore deleteDoc offline or failed for ${collectionName}/${docId}. Processing query locally.`, err);
+    const list = getLocalCollection(collectionName);
+    const keyField = getKeyField(collectionName);
+    const filtered = list.filter((item: any) => item[keyField] !== docId);
+    setLocalCollection(collectionName, filtered);
+    triggerLocalListeners(collectionName);
   }
 }
 
@@ -310,8 +341,8 @@ export async function app_getDocs(collectionName: string): Promise<any[]> {
     snap.forEach(d => list.push(d.data()));
     return list;
   } catch (err) {
-    handleFirestoreError(err, OperationType.LIST, collectionName);
-    return [];
+    console.warn(`Firestore getDocs offline or failed for ${collectionName}. Returning local cache list.`, err);
+    return [...getLocalCollection(collectionName)];
   }
 }
 
@@ -320,8 +351,7 @@ export function app_onSnapshot(
   callback: (data: any[]) => void,
   errorCallback?: (err: any) => void
 ): () => void {
-  if (isDemoBypass()) {
-    // Initial emission
+  const playLocalSnapshot = () => {
     const list = getLocalCollection(collectionName);
     setTimeout(() => callback([...list]), 0);
 
@@ -334,9 +364,12 @@ export function app_onSnapshot(
     return () => {
       localColListeners[collectionName] = localColListeners[collectionName].filter(l => l !== listener);
     };
+  };
+
+  if (isDemoBypass()) {
+    return playLocalSnapshot();
   }
 
-  // Real Firestore onSnapshot
   try {
     const colRef = collection(db, collectionName);
     return onSnapshot(colRef, (snap) => {
@@ -344,19 +377,13 @@ export function app_onSnapshot(
       snap.forEach(d => list.push(d.data()));
       callback(list);
     }, (err) => {
-      if (errorCallback) {
-        errorCallback(err);
-      } else {
-        handleFirestoreError(err, OperationType.LIST, collectionName);
-      }
+      console.warn(`Firestore onSnapshot failed for collection ${collectionName}. Switching to local db fallback.`, err);
+      // Trigger local snapshot tracking
+      playLocalSnapshot();
     });
   } catch (err) {
-    if (errorCallback) {
-      errorCallback(err);
-    } else {
-      handleFirestoreError(err, OperationType.LIST, collectionName);
-    }
-    return () => {};
+    console.warn(`Firestore onSnapshot setup failed for collection ${collectionName}. Switching to local db fallback.`, err);
+    return playLocalSnapshot();
   }
 }
 
@@ -366,7 +393,7 @@ export function app_onSnapshotDoc(
   callback: (data: any) => void,
   errorCallback?: (err: any) => void
 ): () => void {
-  if (isDemoBypass()) {
+  const playLocalDocSnapshot = () => {
     const list = getLocalCollection(collectionName);
     const keyField = getKeyField(collectionName);
     const docData = list.find((item: any) => item[keyField] === docId) || null;
@@ -381,27 +408,23 @@ export function app_onSnapshotDoc(
     return () => {
       localDocListeners[collectionName] = localDocListeners[collectionName].filter(l => l !== listener);
     };
+  };
+
+  if (isDemoBypass(docId)) {
+    return playLocalDocSnapshot();
   }
 
-  // Real Firestore Document onSnapshot
   try {
     const docRef = doc(db, collectionName, docId);
     return onSnapshot(docRef, (snap) => {
       callback(snap.exists() ? snap.data() : null);
     }, (err) => {
-      if (errorCallback) {
-        errorCallback(err);
-      } else {
-        handleFirestoreError(err, OperationType.GET, `${collectionName}/${docId}`);
-      }
+      console.warn(`Firestore onSnapshotDoc failed for ${collectionName}/${docId}. Switching to local.`, err);
+      playLocalDocSnapshot();
     });
   } catch (err) {
-    if (errorCallback) {
-      errorCallback(err);
-    } else {
-      handleFirestoreError(err, OperationType.GET, `${collectionName}/${docId}`);
-    }
-    return () => {};
+    console.warn(`Firestore onSnapshotDoc setup failed for ${collectionName}/${docId}. Switching to local.`, err);
+    return playLocalDocSnapshot();
   }
 }
 
