@@ -194,6 +194,12 @@ export default function AdminPanel({ user, onBackToDashboard }: AdminPanelProps)
       const matchedRecords = attendance.filter(rec => rec.sessionId === targetSession.sessionId);
       const result = await exportSessionReportToSheets(token, targetSession, matchedRecords);
       setSheetsLink(result.url);
+      try {
+        const { app_updateDoc } = await import('../firebase');
+        await app_updateDoc('sessions', targetSession.sessionId, { googleSheetUrl: result.url });
+      } catch (dbErr) {
+        console.warn("Could not save Google Sheet link back to Firestore document.", dbErr);
+      }
     } catch (err: any) {
       console.error(err);
       setErrorHeader(`Google Sheets Export for ${targetSession.subject} failed: ` + (err.message || String(err)));
@@ -716,15 +722,28 @@ export default function AdminPanel({ user, onBackToDashboard }: AdminPanelProps)
                                     </button>
                                   ) : null}
 
-                                  <button
-                                    id={`export-sheets-${session.sessionId}`}
-                                    onClick={() => handleExportSessionToSheets(session)}
-                                    disabled={sessionExportingId === session.sessionId}
-                                    className="inline-flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-slate-950 disabled:opacity-50 font-black px-2.5 py-1.5 text-[10px] transition uppercase tracking-wider rounded-none border-2 border-slate-950 shadow-[1.5px_1.5px_0px_0px_#000] active:translate-y-0.5 cursor-pointer"
-                                  >
-                                    <FileSpreadsheet className="w-3 h-3" />
-                                    {sessionExportingId === session.sessionId ? 'Syncing...' : 'Export Sheet'}
-                                  </button>
+                                  {session.googleSheetUrl ? (
+                                    <a
+                                      href={session.googleSheetUrl}
+                                      target="_blank"
+                                      rel="noreferrer noopener"
+                                      className="inline-flex items-center gap-1.5 bg-emerald-250 hover:bg-emerald-300 text-slate-900 font-black px-2.5 py-1.5 text-[10px] transition uppercase tracking-wider rounded-none border-2 border-slate-950 shadow-[1.5px_1.5px_0px_0px_#000] active:translate-y-0.5 cursor-pointer"
+                                      title="Open synced Google Sheet in new tab"
+                                    >
+                                      <FileSpreadsheet className="w-3 h-3 text-emerald-800" />
+                                      View Sheet
+                                    </a>
+                                  ) : (
+                                    <button
+                                      id={`export-sheets-${session.sessionId}`}
+                                      onClick={() => handleExportSessionToSheets(session)}
+                                      disabled={sessionExportingId === session.sessionId}
+                                      className="inline-flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-slate-950 disabled:opacity-50 font-black px-2.5 py-1.5 text-[10px] transition uppercase tracking-wider rounded-none border-2 border-slate-950 shadow-[1.5px_1.5px_0px_0px_#000] active:translate-y-0.5 cursor-pointer"
+                                    >
+                                      <FileSpreadsheet className="w-3 h-3" />
+                                      {sessionExportingId === session.sessionId ? 'Syncing...' : 'Export Sheet'}
+                                    </button>
+                                  )}
                                 </div>
                               </td>
                             </tr>

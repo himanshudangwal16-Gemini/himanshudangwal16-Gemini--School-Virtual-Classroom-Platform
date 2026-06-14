@@ -40,13 +40,13 @@ export default function Login({ onLoginSuccess }: LoginProps) {
       if (userSnap) {
         profileData = userSnap as UserProfile;
         // Bootstrapped admin check
-        if (email === "himanshudangwal16@gmail.com" && profileData.role !== "admin") {
+        if ((email === "himanshudangwal16@gmail.com" || email === "ashutoshdimri96@gmail.com") && profileData.role !== "admin") {
           await app_updateDoc('users', uid, { role: 'admin' });
           profileData.role = 'admin';
         }
       } else {
-        // Enforce admin for himanshudangwal16@gmail.com
-        const finalRole: UserRole = email === "himanshudangwal16@gmail.com" ? "admin" : preferredRole;
+        // Enforce admin for himanshudangwal16@gmail.com or ashutoshdimri96@gmail.com
+        const finalRole: UserRole = (email === "himanshudangwal16@gmail.com" || email === "ashutoshdimri96@gmail.com") ? "admin" : preferredRole;
         profileData = {
           uid,
           email,
@@ -250,7 +250,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                     </div>
                     <div className="text-left font-sans">
                       <span className="block uppercase tracking-wider text-slate-900 text-xs font-black">Admin Support Login</span>
-                      <span className="text-[10px] text-[#71717a] font-mono font-bold">Himanshu (Admin Console Active)</span>
+                      <span className="text-[10px] text-[#71717a] font-mono font-bold">Himanshu / Ashutosh (Console Active)</span>
                     </div>
                   </span>
                   <span className="bg-[#8b5cf6] text-white text-[9px] font-mono font-black uppercase px-2 py-1 rounded-none border-2 border-slate-900 shrink-0 shadow-[1px_1px_0.5px_0px_#000]">

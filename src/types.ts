@@ -27,6 +27,7 @@ export interface ClassSession {
   createdAt: string;
   endedAt?: string;
   transcript?: string;
+  googleSheetUrl?: string;
 }
 
 export interface AttendanceRecord {

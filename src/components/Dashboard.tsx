@@ -84,7 +84,7 @@ export default function Dashboard({ user, onLogout, onStartClass, onJoinClass, o
     setSheetsLink(null);
     setSheetsError(null);
     try {
-      const { getGoogleAccessToken, signInWithGoogle, app_getDocs } = await import('../firebase');
+      const { getGoogleAccessToken, signInWithGoogle, app_getDocs, app_updateDoc } = await import('../firebase');
       const { exportSessionReportToSheets } = await import('../utils/googleSheets');
       
       let token = getGoogleAccessToken();
@@ -111,6 +111,11 @@ export default function Dashboard({ user, onLogout, onStartClass, onJoinClass, o
       
       const result = await exportSessionReportToSheets(token, targetSession, matchedRecords);
       setSheetsLink(result.url);
+      try {
+        await app_updateDoc('sessions', targetSession.sessionId, { googleSheetUrl: result.url });
+      } catch (dbErr) {
+        console.warn("Saving sheet url to firebase document was refused/denied", dbErr);
+      }
     } catch (err: any) {
       console.error(err);
       setSheetsError(`Google Sheets Export for ${targetSession.subject} failed: ` + (err.message || String(err)));
@@ -260,7 +265,7 @@ export default function Dashboard({ user, onLogout, onStartClass, onJoinClass, o
             <span>📅</span> Scheduled Classes
           </li>
           
-          {(user.role === 'admin' || user.email === "himanshudangwal16@gmail.com") && (
+          {(user.role === 'admin' || user.email === "himanshudangwal16@gmail.com" || user.email === "ashutoshdimri96@gmail.com") && (
             <li 
               id="sidebar-admin-btn"
               onClick={onOpenAdmin}
@@ -342,7 +347,7 @@ export default function Dashboard({ user, onLogout, onStartClass, onJoinClass, o
 
           <div className="flex items-center gap-3.5 flex-wrap">
             {/* Quick Admin action */}
-            {(user.role === 'admin' || user.email === "himanshudangwal16@gmail.com") && (
+            {(user.role === 'admin' || user.email === "himanshudangwal16@gmail.com" || user.email === "ashutoshdimri96@gmail.com") && (
               <button
                 id="header-admin-btn"
                 onClick={onOpenAdmin}
@@ -859,17 +864,32 @@ export default function Dashboard({ user, onLogout, onStartClass, onJoinClass, o
                                   </>
                                 ) : (
                                   <div className="flex items-center gap-2">
-                                    <span className="text-[9px] text-slate-500 italic uppercase font-mono font-bold">Closed</span>
-                                    {(isHost || user.role === 'admin') && (
-                                      <button
-                                        id={`export-sheets-dash-${session.sessionId}`}
-                                        onClick={() => handleExportSessionToSheets(session)}
-                                        disabled={sessionExportingId === session.sessionId}
-                                        className="bg-emerald-50 hover:bg-emerald-100 text-slate-950 disabled:opacity-50 border-2 border-slate-950 font-black text-[9px] px-2.5 py-1 rounded-none uppercase tracking-wider shadow-[2px_2px_0px_0px_#000] active:translate-y-0.5 active:shadow-[1px_1px_0px_0px_#000] transition-all flex items-center gap-1 shrink-0"
+                                    {session.googleSheetUrl ? (
+                                      <a
+                                        href={session.googleSheetUrl}
+                                        target="_blank"
+                                        rel="noreferrer noopener"
+                                        className="bg-emerald-250 hover:bg-emerald-300 text-slate-900 border-2 border-slate-950 font-black text-[9px] px-3.5 py-1.5 rounded-none uppercase tracking-wider shadow-[2px_2px_0px_0px_#000] active:translate-y-0.5 active:shadow-[1px_1px_0px_0px_#000] transition-all flex items-center gap-1.5 shrink-0"
+                                        title="View Live Google Spreadsheet Report"
                                       >
-                                        <FileSpreadsheet className="h-3 w-3 text-slate-900" />
-                                        {sessionExportingId === session.sessionId ? 'Syncing...' : 'Export Sheet'}
-                                      </button>
+                                        <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-800" />
+                                        View Sheet
+                                      </a>
+                                    ) : (
+                                      <>
+                                        <span className="text-[9px] text-slate-500 italic uppercase font-mono font-bold">Closed</span>
+                                        {(isHost || user.role === 'admin') && (
+                                          <button
+                                            id={`export-sheets-dash-${session.sessionId}`}
+                                            onClick={() => handleExportSessionToSheets(session)}
+                                            disabled={sessionExportingId === session.sessionId}
+                                            className="bg-emerald-50 hover:bg-emerald-100 text-slate-950 disabled:opacity-50 border-2 border-slate-950 font-black text-[9px] px-2.5 py-1 rounded-none uppercase tracking-wider shadow-[2px_2px_0px_0px_#000] active:translate-y-0.5 active:shadow-[1px_1px_0px_0px_#000] transition-all flex items-center gap-1 shrink-0"
+                                          >
+                                            <FileSpreadsheet className="h-3 w-3 text-slate-900" />
+                                            {sessionExportingId === session.sessionId ? 'Syncing...' : 'Export Sheet'}
+                                          </button>
+                                        )}
+                                      </>
                                     )}
                                   </div>
                                 )}
@@ -930,7 +950,7 @@ export default function Dashboard({ user, onLogout, onStartClass, onJoinClass, o
                     </div>
                   )}
 
-                  {(user.role === 'admin' || user.email === "himanshudangwal16@gmail.com") && (
+                  {(user.role === 'admin' || user.email === "himanshudangwal16@gmail.com" || user.email === "ashutoshdimri96@gmail.com") && (
                     <button
                       id="side-admin-redirect-btn"
                       onClick={onOpenAdmin}

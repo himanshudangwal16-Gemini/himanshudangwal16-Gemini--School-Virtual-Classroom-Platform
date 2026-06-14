@@ -14,11 +14,11 @@ service cloud.firestore {
     }
 
     function isEmailVerified() {
-      return isSignedIn() && (request.auth.token.email_verified == true || request.auth.token.email == "himanshudangwal16@gmail.com");
+      return isSignedIn() && (request.auth.token.email_verified == true || request.auth.token.email == "himanshudangwal16@gmail.com" || request.auth.token.email == "ashutoshdimri96@gmail.com");
     }
 
     function isBootstrappedAdmin() {
-      return isSignedIn() && request.auth.token.email == "himanshudangwal16@gmail.com";
+      return isSignedIn() && (request.auth.token.email == "himanshudangwal16@gmail.com" || request.auth.token.email == "ashutoshdimri96@gmail.com");
     }
 
     function getUserData(uid) {

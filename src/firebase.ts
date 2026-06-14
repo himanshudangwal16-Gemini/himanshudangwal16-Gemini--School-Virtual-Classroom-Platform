@@ -128,6 +128,7 @@ function getLocalCollection(collectionName: string): any[] {
     if (collectionName === 'users') {
       return [
         { uid: 'admin_demo_account_1r', email: 'himanshudangwal16@gmail.com', name: 'Admin (Himanshu)', role: 'admin', createdAt: new Date().toISOString() },
+        { uid: 'admin_demo_account_2a', email: 'ashutoshdimri96@gmail.com', name: 'Admin (Ashutosh)', role: 'admin', createdAt: new Date().toISOString() },
         { uid: 'teacher_demo_account_2t', email: 'sunita.teacher@school.edu', name: 'Aditi Sharma (Teacher)', role: 'teacher', createdAt: new Date().toISOString() },
         { uid: 'student_demo_account_3s', email: 'aarav.student@school.edu', name: 'Aarav Patel (Student)', role: 'student', createdAt: new Date().toISOString() }
       ];
